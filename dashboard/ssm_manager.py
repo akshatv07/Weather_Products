@@ -1,0 +1,77 @@
+import boto3
+import time
+import streamlit as st
+
+class SSMManager:
+    def __init__(self, aws_access_key_id, aws_secret_access_key, region_name):
+        self.ssm = boto3.client(
+            'ssm',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=region_name
+        )
+        self.s3 = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            region_name=region_name
+        )
+
+    def run_spark_job(self, instance_id, script_name, bucket_name):
+        """
+        Triggers a Spark job on the EC2 instance via SSM.
+        Redirects output to a log file and uploads it to S3 upon completion.
+        """
+        # Construct the command
+        # 1. Source profile to get env vars (if any)
+        # 2. Run spark-submit
+        # 3. Upload logs to S3
+        
+        log_filename = f"{script_name.replace('.py', '')}_{int(time.time())}.log"
+        s3_log_path = f"s3://{bucket_name}/logs/{log_filename}"
+        
+        # Note: We assume the scripts are in the home directory /home/ubuntu/
+        # and spark-submit is in the path or we use absolute path.
+        # We also need to ensure AWS credentials for the upload are present or use IAM role.
+        
+        commands = [
+            f"cd /home/ubuntu",
+            f"export PATH=$PATH:/home/ubuntu/.local/bin:/usr/lib/spark/bin", # Ensure spark-submit is found
+            f"spark-submit --master local[*] --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 {script_name} > /tmp/{log_filename} 2>&1",
+            f"aws s3 cp /tmp/{log_filename} {s3_log_path}"
+        ]
+        
+        try:
+            response = self.ssm.send_command(
+                InstanceIds=[instance_id],
+                DocumentName="AWS-RunShellScript",
+                Parameters={'commands': commands},
+                Comment=f"Run Spark Job: {script_name}"
+            )
+            return response['Command']['CommandId'], log_filename
+        except Exception as e:
+            st.error(f"Failed to trigger job: {str(e)}")
+            return None, None
+
+    def get_job_status(self, command_id, instance_id):
+        """
+        Checks the status of the SSM command.
+        """
+        try:
+            response = self.ssm.get_command_invocation(
+                CommandId=command_id,
+                InstanceId=instance_id
+            )
+            return response['Status'], response['StandardOutputContent'], response['StandardErrorContent']
+        except Exception as e:
+            return "Error", str(e), ""
+
+    def read_log_from_s3(self, bucket_name, log_filename):
+        """
+        Reads the log file from S3.
+        """
+        try:
+            obj = self.s3.get_object(Bucket=bucket_name, Key=f"logs/{log_filename}")
+            return obj['Body'].read().decode('utf-8')
+        except Exception as e:
+            return f"Log not found yet or error reading: {str(e)}"

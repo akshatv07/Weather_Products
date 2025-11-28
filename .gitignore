@@ -1,0 +1,30 @@
+# Data Files
+*.csv
+*.xlsx
+*.gz
+*.zip
+*.parquet
+
+# Logs and Output
+*.log
+*.txt
+!requirements.txt
+!requirements_dashboard.txt
+!requirements_controller.txt
+
+# System Files
+__MACOSX/
+.DS_Store
+Thumbs.db
+
+# Directories
+processed_local/
+synthetic_indian_festival_sales/
+Cities/
+Architecture-*/
+Resource-Icons_07312025/
+__pycache__/
+
+# Keys and Secrets
+*.pem
+*_accessKeys.csv
