@@ -17,19 +17,21 @@ st.sidebar.title("Configuration")
 if 'AWS_ACCESS_KEY_ID' in st.secrets:
     aws_access_key = st.secrets['AWS_ACCESS_KEY_ID']
     aws_secret_key = st.secrets['AWS_SECRET_ACCESS_KEY']
-    default_region = st.secrets.get('AWS_DEFAULT_REGION', 'ap-south-1')
-    default_bucket = st.secrets.get('S3_BUCKET_NAME', 'indian-weather-project-leywin')
-    default_instance = st.secrets.get('EC2_INSTANCE_ID', '')
+    region = st.secrets.get('AWS_DEFAULT_REGION', 'ap-south-1')
+    bucket_name = st.secrets.get('S3_BUCKET_NAME', 'indian-weather-project-leywin')
+    instance_id = st.secrets.get('EC2_INSTANCE_ID', '')
+    
+    # Show configured values (read-only)
+    st.sidebar.success("✅ Credentials loaded from secrets")
+    st.sidebar.text(f"Region: {region}")
+    st.sidebar.text(f"Bucket: {bucket_name}")
+    st.sidebar.text(f"Instance: {instance_id}")
 else:
     aws_access_key = st.sidebar.text_input("AWS Access Key ID", type="password")
     aws_secret_key = st.sidebar.text_input("AWS Secret Access Key", type="password")
-    default_region = "ap-south-1"
-    default_bucket = "indian-weather-project-leywin"
-    default_instance = ""
-
-region = st.sidebar.text_input("AWS Region", value=default_region)
-bucket_name = st.sidebar.text_input("S3 Bucket Name", value=default_bucket)
-instance_id = st.sidebar.text_input("EC2 Instance ID", value=default_instance)
+    region = st.sidebar.text_input("AWS Region", value="ap-south-1")
+    bucket_name = st.sidebar.text_input("S3 Bucket Name", value="indian-weather-project-leywin")
+    instance_id = st.sidebar.text_input("EC2 Instance ID", value="")
 
 if not aws_access_key or not aws_secret_key or not instance_id:
     st.warning("Please provide AWS Credentials and Instance ID in the sidebar.")
