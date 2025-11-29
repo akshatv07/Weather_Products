@@ -149,28 +149,180 @@ with tab2:
 
 # --- Tab 3: Visualizations ---
 with tab3:
-    st.header("Visualizations")
+    st.header("📊 Data Visualizations")
     
     if 'preview_df' in st.session_state:
         df = st.session_state['preview_df']
-        st.write("Visualizing loaded data...")
         
         # Auto-detect columns
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
         categorical_cols = df.select_dtypes(include=['object', 'string']).columns.tolist()
         
+        # Metrics Cards
         if numeric_cols:
-            st.subheader("Distribution")
-            col_dist = st.selectbox("Select Numeric Column", numeric_cols)
-            fig_hist = px.histogram(df, x=col_dist, title=f"Distribution of {col_dist}")
-            st.plotly_chart(fig_hist)
+            st.subheader("📈 Key Metrics")
+            cols = st.columns(min(4, len(numeric_cols)))
+            for i, col in enumerate(numeric_cols[:4]):
+                with cols[i]:
+                    st.metric(
+                        label=col.replace('_', ' ').title(),
+                        value=f"{df[col].sum():,.0f}" if 'revenue' in col.lower() or 'units' in col.lower() else f"{df[col].mean():.2f}",
+                        delta=f"{df[col].std():.2f}" if len(df) > 1 else None
+                    )
+        
+        st.divider()
+        
+        # Chart Type Selection
+        chart_type = st.radio(
+            "Select Chart Type",
+            ["Bar Chart", "Pie Chart", "Line Chart", "Scatter Plot", "Heatmap"],
+            horizontal=True
+        )
+        
+        if chart_type == "Bar Chart" and numeric_cols and categorical_cols:
+            col1, col2 = st.columns(2)
+            with col1:
+                x_col = st.selectbox("X Axis (Category)", categorical_cols, key="bar_x")
+            with col2:
+                y_col = st.selectbox("Y Axis (Value)", numeric_cols, key="bar_y")
             
-        if numeric_cols and categorical_cols:
-            st.subheader("Bar Chart")
-            x_col = st.selectbox("X Axis (Categorical)", categorical_cols)
-            y_col = st.selectbox("Y Axis (Numeric)", numeric_cols)
-            fig_bar = px.bar(df, x=x_col, y=y_col, title=f"{y_col} by {x_col}")
-            st.plotly_chart(fig_bar)
+            # Color by category
+            color_col = st.selectbox("Color By", [None] + categorical_cols, key="bar_color")
+            
+            fig = px.bar(
+                df, 
+                x=x_col, 
+                y=y_col, 
+                color=color_col if color_col else x_col,
+                title=f"{y_col.replace('_', ' ').title()} by {x_col.replace('_', ' ').title()}",
+                color_discrete_sequence=px.colors.qualitative.Set3,
+                template="plotly_dark"
+            )
+            fig.update_layout(height=500)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        elif chart_type == "Pie Chart" and numeric_cols and categorical_cols:
+            col1, col2 = st.columns(2)
+            with col1:
+                names_col = st.selectbox("Categories", categorical_cols, key="pie_names")
+            with col2:
+                values_col = st.selectbox("Values", numeric_cols, key="pie_values")
+            
+            # Aggregate data
+            pie_data = df.groupby(names_col)[values_col].sum().reset_index()
+            
+            fig = px.pie(
+                pie_data,
+                names=names_col,
+                values=values_col,
+                title=f"{values_col.replace('_', ' ').title()} Distribution",
+                color_discrete_sequence=px.colors.qualitative.Pastel,
+                template="plotly_dark"
+            )
+            fig.update_traces(textposition='inside', textinfo='percent+label')
+            fig.update_layout(height=500)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        elif chart_type == "Line Chart" and numeric_cols:
+            # Check if there's a date column
+            date_cols = [col for col in df.columns if 'date' in col.lower() or 'year' in col.lower()]
+            
+            if date_cols:
+                col1, col2 = st.columns(2)
+                with col1:
+                    x_col = st.selectbox("X Axis (Time)", date_cols, key="line_x")
+                with col2:
+                    y_col = st.selectbox("Y Axis (Value)", numeric_cols, key="line_y")
+                
+                color_col = st.selectbox("Group By", [None] + categorical_cols, key="line_color")
+                
+                fig = px.line(
+                    df,
+                    x=x_col,
+                    y=y_col,
+                    color=color_col,
+                    title=f"{y_col.replace('_', ' ').title()} Over Time",
+                    color_discrete_sequence=px.colors.qualitative.Bold,
+                    template="plotly_dark"
+                )
+                fig.update_layout(height=500)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No date/time column found for line chart. Try another chart type.")
+                
+        elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                x_col = st.selectbox("X Axis", numeric_cols, key="scatter_x")
+            with col2:
+                y_col = st.selectbox("Y Axis", [c for c in numeric_cols if c != x_col], key="scatter_y")
+            with col3:
+                color_col = st.selectbox("Color By", [None] + categorical_cols, key="scatter_color")
+            
+            fig = px.scatter(
+                df,
+                x=x_col,
+                y=y_col,
+                color=color_col,
+                title=f"{y_col.replace('_', ' ').title()} vs {x_col.replace('_', ' ').title()}",
+                color_discrete_sequence=px.colors.qualitative.Vivid,
+                template="plotly_dark"
+            )
+            fig.update_layout(height=500)
+            st.plotly_chart(fig, use_container_width=True)
+            
+        elif chart_type == "Heatmap" and len(numeric_cols) >= 2:
+            st.info("Showing correlation heatmap of numeric columns")
+            
+            corr_matrix = df[numeric_cols].corr()
+            
+            fig = px.imshow(
+                corr_matrix,
+                text_auto=True,
+                aspect="auto",
+                title="Correlation Heatmap",
+                color_continuous_scale="RdBu_r",
+                template="plotly_dark"
+            )
+            fig.update_layout(height=500)
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Data Table with Filters
+        st.divider()
+        st.subheader("🔍 Filtered Data View")
+        
+        if categorical_cols:
+            filter_col = st.selectbox("Filter by Column", categorical_cols)
+            unique_values = df[filter_col].unique()
+            selected_values = st.multiselect(
+                f"Select {filter_col} values",
+                unique_values,
+                default=list(unique_values[:5]) if len(unique_values) > 5 else list(unique_values)
+            )
+            
+            if selected_values:
+                filtered_df = df[df[filter_col].isin(selected_values)]
+                st.dataframe(filtered_df, use_container_width=True, height=400)
+                
+                # Download button
+                csv = filtered_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Filtered Data as CSV",
+                    data=csv,
+                    file_name=f"filtered_data_{filter_col}.csv",
+                    mime="text/csv"
+                )
+        else:
+            st.dataframe(df, use_container_width=True, height=400)
             
     else:
-        st.info("Please load a dataset in the 'Data Preview' tab first.")
+        st.info("👈 Please load a dataset in the 'Data Preview' tab first to see visualizations.")
+        st.markdown("""
+        ### Available Summary Tables:
+        1. **Overall KPIs**: Daily revenue, units, transactions
+        2. **Festival Category**: Performance by festival and product category
+        3. **Geo Summary**: City-level sales with coordinates
+        4. **Weather Sales**: Sales correlation with weather conditions
+        5. **Payment Vendor**: Revenue by payment method and vendor type
+        """)
+
