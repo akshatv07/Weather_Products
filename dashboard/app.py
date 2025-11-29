@@ -142,6 +142,22 @@ with tab2:
                 elif selected_file.endswith('.parquet'):
                     df = pd.read_parquet(io.BytesIO(obj['Body'].read()))
                 
+                # Handle nested columns (like top_products in festival_category_summary)
+                if 'top_products' in df.columns:
+                    # Convert nested struct to readable string
+                    def format_top_products(products):
+                        if products is None or (isinstance(products, float) and pd.isna(products)):
+                            return "N/A"
+                        try:
+                            # products is a list of dicts like [{'product': 'X', 'revenue': 123}, ...]
+                            if isinstance(products, list):
+                                return ", ".join([f"{p['product']} (₹{p['revenue']:,.0f})" for p in products])
+                            return str(products)
+                        except:
+                            return str(products)
+                    
+                    df['top_products'] = df['top_products'].apply(format_top_products)
+                
                 st.dataframe(df.head(500))
                 st.session_state['preview_df'] = df
             except Exception as e:
@@ -164,9 +180,17 @@ with tab3:
             cols = st.columns(min(4, len(numeric_cols)))
             for i, col in enumerate(numeric_cols[:4]):
                 with cols[i]:
+                    # Format value based on column type
+                    if 'revenue' in col.lower():
+                        value = f"₹{df[col].sum():,.0f}"
+                    elif 'units' in col.lower() or 'products' in col.lower() or 'sold' in col.lower():
+                        value = f"{df[col].sum():,.0f}"
+                    else:
+                        value = f"{df[col].mean():.2f}"
+                    
                     st.metric(
                         label=col.replace('_', ' ').title(),
-                        value=f"{df[col].sum():,.0f}" if 'revenue' in col.lower() or 'units' in col.lower() else f"{df[col].mean():.2f}",
+                        value=value,
                         delta=f"{df[col].std():.2f}" if len(df) > 1 else None
                     )
         
