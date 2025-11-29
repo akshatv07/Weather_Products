@@ -20,25 +20,19 @@ class SSMManager:
     def run_spark_job(self, instance_id, script_name, bucket_name):
         """
         Triggers a Spark job on the EC2 instance via SSM.
-        Redirects output to a log file and uploads it to S3 upon completion.
+        Captures output via SSM (no S3 upload needed).
         """
         # Construct the command
-        # 1. Source profile to get env vars (if any)
-        # 2. Run spark-submit
-        # 3. Upload logs to S3
-        
         log_filename = f"{script_name.replace('.py', '')}_{int(time.time())}.log"
-        s3_log_path = f"s3://{bucket_name}/logs/{log_filename}"
         
-        # Note: We assume the scripts are in the home directory /home/ubuntu/
-        # and spark-submit is in the path or we use absolute path.
-        # We also need to ensure AWS credentials for the upload are present or use IAM role.
+        # Run spark-submit and capture output
+        # Note: We don't upload to S3 since AWS CLI may not be installed
+        # SSM will capture stdout/stderr for us
         
         commands = [
             f"cd /home/ubuntu",
-            f"export PATH=$PATH:/home/ubuntu/.local/bin:/usr/lib/spark/bin", # Ensure spark-submit is found
-            f"spark-submit --master local[*] --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 {script_name} > /tmp/{log_filename} 2>&1",
-            f"aws s3 cp /tmp/{log_filename} {s3_log_path}"
+            f"export PATH=$PATH:/home/ubuntu/.local/bin:/usr/lib/spark/bin",
+            f"spark-submit --master local[*] --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 {script_name} 2>&1"
         ]
         
         try:

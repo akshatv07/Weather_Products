@@ -100,12 +100,17 @@ with tab1:
                 
                 if status == "Success":
                     st.success("Job Completed Successfully!")
-                    # Fetch logs from S3
-                    logs = ssm_manager.read_log_from_s3(bucket_name, st.session_state['current_log_file'])
-                    logs_placeholder.code(logs)
+                    # Show SSM output
+                    if stdout:
+                        st.subheader("Output:")
+                        logs_placeholder.code(stdout, language="bash")
                 elif status == "Failed":
                     st.error("Job Failed!")
-                    st.code(stderr)
+                    if stderr:
+                        st.code(stderr, language="bash")
+                    if stdout:
+                        st.subheader("Output before failure:")
+                        st.code(stdout, language="bash")
                 else:
                     st.info("Job is running... Check back in a moment.")
 
