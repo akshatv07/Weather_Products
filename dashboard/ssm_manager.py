@@ -31,8 +31,7 @@ class SSMManager:
         
         commands = [
             f"cd /home/ubuntu",
-            f"export PATH=$PATH:/home/ubuntu/.local/bin:/usr/lib/spark/bin",
-            f"spark-submit --master local[*] --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 {script_name} 2>&1"
+            f"/opt/spark/bin/spark-submit --master local[*] --packages org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk-bundle:1.12.262 {script_name} 2>&1"
         ]
         
         try:
